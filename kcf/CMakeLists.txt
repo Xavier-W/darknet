@@ -8,13 +8,13 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -O3 -std=c++11")
 find_package(OpenCV REQUIRED)
 
 include_directories(${OpenCV_INCLUDE_DIRS})
-include_directories(/home/xnwu/wxn/darknet/src)
-include_directories(/home/xnwu/wxn/darknet/include)
+# include_directories(/home/xnwu/wxn/darknet/src)
+# include_directories(/home/xnwu/wxn/darknet/include)
 include_directories(KCFcpp/src/) 
 file( GLOB KCF_SOURCES "KCFcpp/src/*.cpp" )
 add_library( KCF ${KCF_SOURCES})
 
 add_executable(kcf_tracker main.cpp)
 
-target_link_libraries(kcf_tracker /home/xnwu/wxn/darknet/libdarknet.so) # 显示指定链接动态库
+target_link_libraries(kcf_tracker ${CMAKE_SOURCE_DIR}/../libdarknet.so) # 显示指定链接动态库
 target_link_libraries(kcf_tracker ${OpenCV_LIBS} KCF)
