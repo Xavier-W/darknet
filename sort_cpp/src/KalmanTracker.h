@@ -20,7 +20,7 @@ public:
 	{
 		init_kf(StateType());
 		m_time_since_update = 0;
-		m_hits = 0;
+		m_hits_init = 0;
 		m_hit_streak = 0;
 		m_age = 0;
 		m_id = kf_count;
@@ -30,7 +30,7 @@ public:
 	{
 		init_kf(initRect);
 		m_time_since_update = 0;
-		m_hits = 0;
+		m_hits_init = 0;
 		m_hit_streak = 0;
 		m_age = 0;
 		m_id = kf_count;
@@ -46,13 +46,13 @@ public:
 	void update(StateType stateMat);
 
 	StateType get_state();
-	StateType get_rect_xysr(float cx, float cy, float s, float r);
+	StateType get_rect_xysr(float cx, float cy, float r, float h);
 
 	StateType lastRect;
 	static int kf_count;
 
 	int m_time_since_update;
-	int m_hits;
+	int m_hits_init;
 	int m_hit_streak;
 	int m_age;
 	int m_id;

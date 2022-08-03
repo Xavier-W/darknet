@@ -47,8 +47,8 @@ struct TRACK
     Scalar_<int> randColor[CNUM];
 
     int frame_count = 0;
-    int max_age = 15;
-    int min_hits = 3;
+    int max_age = 0;
+    int min_hits = 8;
     double iouThreshold = 0.3;
     vector<KalmanTracker> trackers;
 
@@ -67,6 +67,7 @@ struct TRACK
 
     double cycle_time = 0.0;
     int64 start_time = 0;
+    int obj_count = 0;
 
     TRACK(int max_age)
     {
@@ -217,12 +218,18 @@ struct TRACK
         frameTrackingResult.clear();
         for (auto it = trackers.begin(); it != trackers.end();)
         {
-            if (((*it).m_time_since_update < 1) &&
-                ((*it).m_hit_streak >= min_hits || frame_count <= min_hits))
+            if (((*it).m_time_since_update <= max_age) &&
+                ((*it).m_hits_init >= min_hits))
             {
+                if((*it).m_hits_init == min_hits)
+                {
+                    obj_count += 1;
+                    (*it).m_id = obj_count;
+                }
                 TrackingBox res;
                 res.box = (*it).lastRect;
-                res.id = (*it).m_id + 1;
+                // (*it).kf_count += 1;
+                res.id = (*it).m_id;
                 res.frame = frame_count;
                 frameTrackingResult.push_back(res);
                 it++;
@@ -231,8 +238,10 @@ struct TRACK
                 it++;
 
             // remove dead tracklet
-            if (it != trackers.end() && (*it).m_time_since_update > max_age)
+            if ((it != trackers.end()) && (((*it).m_time_since_update > max_age) || ((*it).m_hits_init < min_hits && (*it).m_time_since_update > 0)))
                 it = trackers.erase(it);
+            // if (((*it).m_hits_init < min_hits) && ((*it).m_time_since_update > 0))
+            //     it = trackers.erase(it);
         }
 
         cycle_time = (double)(getTickCount() - start_time);

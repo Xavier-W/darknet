@@ -8,30 +8,47 @@ int KalmanTracker::kf_count = 0;
 // initialize Kalman filter
 void KalmanTracker::init_kf(StateType stateMat)
 {
-	int stateNum = 7;
+	int stateNum = 8;
 	int measureNum = 4;
 	kf = KalmanFilter(stateNum, measureNum, 0);
 
 	measurement = Mat::zeros(measureNum, 1, CV_32F);
 
-	kf.transitionMatrix = (Mat_<float>(stateNum, stateNum) << 1, 0, 0, 0, 1, 0, 0,
-						   0, 1, 0, 0, 0, 1, 0,
-						   0, 0, 1, 0, 0, 0, 1,
-						   0, 0, 0, 1, 0, 0, 0,
-						   0, 0, 0, 0, 1, 0, 0,
-						   0, 0, 0, 0, 0, 1, 0,
-						   0, 0, 0, 0, 0, 0, 1);
+	kf.transitionMatrix = (Mat_<float>(stateNum, stateNum) << 1, 0, 0, 0, 1, 0, 0, 0,
+						   0, 1, 0, 0, 0, 1, 0, 0,
+						   0, 0, 1, 0, 0, 0, 1, 0,
+						   0, 0, 0, 1, 0, 0, 0, 1,
+						   0, 0, 0, 0, 1, 0, 0, 0,
+						   0, 0, 0, 0, 0, 1, 0, 0,
+						   0, 0, 0, 0, 0, 0, 1, 0,
+						   0, 0, 0, 0, 0, 0, 0, 1);
 
+	// kf.measurementMatrix = (Mat_<float>(stateNum, stateNum) << 0, 0, 0, 0, 1, 0, 0, 0,
+	// 					   0, 0, 0, 0, 0, 1, 0, 0,
+	// 					   0, 0, 0, 0, 0, 0, 1, 0,
+	// 					   0, 0, 0, 0, 0, 0, 0, 1);
+	kf.processNoiseCov = (Mat_<float>(stateNum, stateNum) << pow(0.1*stateMat.height,2), 0, 0, 0, 0, 0, 0, 0,
+						   0, pow(0.1*stateMat.height,2), 0, 0, 0, 0, 0, 0,
+						   0, 0, pow(1,-4), 0, 0, 0, 0, 0,
+						   0, 0, 0, pow(0.1*stateMat.height,2), 0, 0, 0, 0,
+						   0, 0, 0, 0, pow(0.06*stateMat.height,2), 0, 0, 0,
+						   0, 0, 0, 0, 0, pow(0.06*stateMat.height,2), 0, 0,
+						   0, 0, 0, 0, 0, 0, pow(1,-10), 0,
+						   0, 0, 0, 0, 0, 0, 0, pow(0.06*stateMat.height,2));
+	// kf.processNoiseCov = (Mat_<float>(stateNum, stateNum) << pow(0.1*stateMat.height,2), 0, 0, 0, 
+	// 					   0, pow(0.1*stateMat.height,2), 0, 0, 
+	// 					   0, 0, pow(1,-4), 0, 
+	// 					   0, 0, 0, pow(0.1*stateMat.height,2));
 	setIdentity(kf.measurementMatrix);
-	setIdentity(kf.processNoiseCov, Scalar::all(1e-2));
+	// setIdentity(kf.processNoiseCov, Scalar::all(1e-2));
 	setIdentity(kf.measurementNoiseCov, Scalar::all(1e-1));
 	setIdentity(kf.errorCovPost, Scalar::all(1));
 
 	// initialize state vector with bounding box in [cx,cy,s,r] style
 	kf.statePost.at<float>(0, 0) = stateMat.x + stateMat.width / 2;
 	kf.statePost.at<float>(1, 0) = stateMat.y + stateMat.height / 2;
-	kf.statePost.at<float>(2, 0) = stateMat.area();
-	kf.statePost.at<float>(3, 0) = stateMat.width / stateMat.height;
+	kf.statePost.at<float>(2, 0) = stateMat.width / stateMat.height;
+	kf.statePost.at<float>(3, 0) = stateMat.height;
 }
 
 // Predict the estimated bounding box.
@@ -41,8 +58,8 @@ StateType KalmanTracker::predict()
 	Mat p = kf.predict();
 	m_age += 1;
 
-	if (m_time_since_update > 0)
-		m_hit_streak = 0;
+	// if (m_time_since_update > 0)
+	// 	m_hit_streak = 0;
 	m_time_since_update += 1;
 
 	StateType predictBox = get_rect_xysr(p.at<float>(0, 0), p.at<float>(1, 0), p.at<float>(2, 0), p.at<float>(3, 0));
@@ -58,14 +75,14 @@ void KalmanTracker::update(StateType stateMat)
 
 	m_time_since_update = 0;
 	m_history.clear();
-	m_hits += 1;
-	m_hit_streak += 1;
+	m_hits_init += 1;
+	// m_hit_streak += 1;
 
 	// measurement
 	measurement.at<float>(0, 0) = stateMat.x + stateMat.width / 2;
 	measurement.at<float>(1, 0) = stateMat.y + stateMat.height / 2;
-	measurement.at<float>(2, 0) = stateMat.area();
-	measurement.at<float>(3, 0) = stateMat.width / stateMat.height;
+	measurement.at<float>(2, 0) = stateMat.width / stateMat.height;
+	measurement.at<float>(3, 0) = stateMat.height;
 
 	// update
 	kf.correct(measurement);
@@ -79,10 +96,9 @@ StateType KalmanTracker::get_state()
 }
 
 // Convert bounding box from [cx,cy,s,r] to [x,y,w,h] style.
-StateType KalmanTracker::get_rect_xysr(float cx, float cy, float s, float r)
+StateType KalmanTracker::get_rect_xysr(float cx, float cy, float r, float h)
 {
-	float w = sqrt(s * r);
-	float h = s / w;
+	float w = h * r;
 	float x = (cx - w / 2);
 	float y = (cy - h / 2);
 
